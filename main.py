@@ -1,5 +1,4 @@
 import os
-import json
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -16,21 +15,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Recupero variabili d'ambiente con fallback di sicurezza
-SUPABASE_URL = os.getenv("SUPABASE_URL", "https://gyynkdzsxlwfqtdnitno.supabase.co")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY", "sb_publishable_pdgK3lE8T7LKrPufXZf79A_6BlxqnYL")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-
-# Inizializzazione sicura dei client
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
+
+# Funzione sicura per ottenere il client Supabase senza causare crash all'avvio
+def get_supabase_client() -> Client:
+    url = os.getenv("SUPABASE_URL", "https://gyynkdzsxlwfqtdnitno.supabase.co")
+    key = os.getenv("SUPABASE_KEY", "sb_publishable_pdgK3lE8T7LKrPufXZf79A_6BlxqnYL")
+    if not url or not url.startswith("http"):
+        url = "https://gyynkdzsxlwfqtdnitno.supabase.co"
+    return create_client(url, key)
 
 class UserRequest(BaseModel):
     message: str
 
 @app.get("/")
 def home():
-    return {"status": "online", "message": "JARVIS OS Backend attivo con Supabase e Groq"}
+    return {"status": "online", "message": "JARVIS OS Backend attivo"}
 
 @app.post("/chat")
 def chat_endpoint(req: UserRequest):
@@ -45,7 +46,7 @@ def chat_endpoint(req: UserRequest):
 
     try:
         completion = groq_client.chat.completions.create(
-            model="llama3-70b-8192",  # Modello stabile e pienamente supportato
+            model="llama3-70b-8192",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": req.message}
