@@ -15,16 +15,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# Legge le variabili e pulisce eventuali spazi o valori vuoti
-env_url = (os.getenv("SUPABASE_URL") or "").strip()
-env_key = (os.getenv("SUPABASE_KEY") or "").strip()
-env_groq = (os.getenv("GROQ_API_KEY") or "").strip()
 
-SUPABASE_URL = env_url if env_url else "https://gyynkdzsxlwfqtdnitno.supabase.co"
-SUPABASE_KEY = env_key if env_key else "sb_publishable_pdgK3lE8T7LKrPufXZf79A_6BlxqnYL"
-GROQ_API_KEY = env_groq
+# Sanificazione URL per evitare crash da variabili vuote su Render
+DEFAULT_SUPABASE_URL = "https://gyynkdzsxlwfqtdnitno.supabase.co"
+DEFAULT_SUPABASE_KEY = "sb_publishable_pdgK3lE8T7LKrPufXZf79A_6BlxqnYL"
+
+raw_url = os.getenv("SUPABASE_URL", "").strip().strip('"').strip("'")
+raw_key = os.getenv("SUPABASE_KEY", "").strip().strip('"').strip("'")
+
+SUPABASE_URL = raw_url if (raw_url and raw_url.startswith("http")) else DEFAULT_SUPABASE_URL
+SUPABASE_KEY = raw_key if raw_key else DEFAULT_SUPABASE_KEY
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip().strip('"').strip("'")
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+groq_client = Groq(api_key=GROQ_API_KEY)
 
 class UserRequest(BaseModel):
     message: str
