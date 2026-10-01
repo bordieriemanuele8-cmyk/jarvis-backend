@@ -16,10 +16,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Connessioni Supabase e Groq con fallback sicuri
+# Forziamo direttamente URL e Key di fallback validi se le variabili d'ambiente non sono pronte
 SUPABASE_URL = os.getenv("SUPABASE_URL") or "https://gyynkdzsxlwfqtdnitno.supabase.co"
 SUPABASE_KEY = os.getenv("SUPABASE_KEY") or "sb_publishable_pdgK3lE8T7LKrPufXZf79A_6BlxqnYL"
 GROQ_API_KEY = os.getenv("GROQ_API_KEY") or ""
+
+# Protezione assoluta contro URL non validi
+if not SUPABASE_URL or not SUPABASE_URL.startswith("http"):
+    SUPABASE_URL = "https://gyynkdzsxlwfqtdnitno.supabase.co"
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
@@ -122,7 +126,7 @@ def chat_endpoint(req: UserRequest):
     system_prompt = (
         "Sei JARVIS, l'intelligenza artificiale avanzata creata da Tony Stark (protocollo viola). "
         "Rispondi sempre in italiano con un tono formale, efficiente e sofisticato, rivolgendoti all'utente come 'Signore'. "
-        "Hai pieno accesso alle funzioni per gestire spese, nutrizione, allenamenti e impegni sul database Supabase dell'utente."
+        "Hai pieno accesso alle funzioni per gestire spese, nutrizione, allenamenti e impegni sul database Supabase."
     )
 
     messages = [
@@ -144,7 +148,6 @@ def chat_endpoint(req: UserRequest):
     response_message = response.choices[0].message
 
     if response_message.tool_calls:
-        # Trasforma i messaggi in un formato compatibile con la cronologia di Groq
         messages.append({
             "role": "assistant",
             "content": response_message.content or "",
