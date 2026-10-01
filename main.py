@@ -1,13 +1,27 @@
+import os
 import json
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from groq import Groq
 from supabase import create_client, Client
 
-SUPABASE_URL = "https://gyynkdzsxlwfqtdnitno.supabase.co"
-SUPABASE_KEY = "sb_publishable_pdgK3lE8T7LKrPufXZf79A_6BlxqnYL"
-GROQ_API_KEY = "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"
+app = FastAPI(title="JARVIS Backend API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+SUPABASE_URL = os.getenv("SUPABASE_URL", "https://gyynkdzsxlwfqtdnitno.supabase.co")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "sb_publishable_pdgK3lE8T7LKrPufXZf79A_6BlxqnYL")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "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")
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-groq_client = Groq(api_key=GROQ_API_KEY)
+groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
 # ==========================================
 # 1. FUNZIONI DI SCRITTURA (INSERT)
@@ -87,87 +101,79 @@ TOOLS_MAP = {
     "consulta_allenamenti": consulta_allenamenti
 }
 
-# ==========================================
-# 3. SCHEMA TOOL COMPLETO
-# ==========================================
 tools = [
-    # WRITE TOOLS
     {"type": "function", "function": {"name": "registra_spesa", "description": "Registra spesa/entrata", "parameters": {"type": "object", "properties": {"descrizione": {"type": "string"}, "importo": {"type": "number"}, "categoria": {"type": "string"}, "tipo": {"type": "string", "enum": ["entrata", "uscita"]}}, "required": ["descrizione", "importo"]}}},
     {"type": "function", "function": {"name": "traccia_pasto", "description": "Traccia cibo e calorie", "parameters": {"type": "object", "properties": {"alimento_o_pasto": {"type": "string"}, "calorie": {"type": "integer"}, "proteine_g": {"type": "number"}, "carboidrati_g": {"type": "number"}, "grassi_g": {"type": "number"}}, "required": ["alimento_o_pasto"]}}},
     {"type": "function", "function": {"name": "aggiungi_impegno", "description": "Aggiunge task/impegno", "parameters": {"type": "object", "properties": {"titolo": {"type": "string"}, "categoria": {"type": "string"}, "priorita": {"type": "string"}}, "required": ["titolo"]}}},
     {"type": "function", "function": {"name": "registra_allenamento", "description": "Registra allenamento", "parameters": {"type": "object", "properties": {"nome_allenamento": {"type": "string"}, "durata_minuti": {"type": "integer"}, "dettaglio_esercizi": {"type": "string"}}, "required": ["nome_allenamento"]}}},
-    # READ TOOLS
     {"type": "function", "function": {"name": "consulta_spese", "description": "Legge gli ultimi record delle spese dal database", "parameters": {"type": "object", "properties": {"limite": {"type": "integer"}}}}},
     {"type": "function", "function": {"name": "consulta_pasti", "description": "Legge gli ultimi pasti e calorie registrati dal database", "parameters": {"type": "object", "properties": {"limite": {"type": "integer"}}}}},
     {"type": "function", "function": {"name": "consulta_impegni", "description": "Legge la lista dei prossimi impegni e task dal database", "parameters": {"type": "object", "properties": {"limite": {"type": "integer"}}}}},
     {"type": "function", "function": {"name": "consulta_allenamenti", "description": "Legge gli ultimi allenamenti registrati dal database", "parameters": {"type": "object", "properties": {"limite": {"type": "integer"}}}}}
 ]
 
-# Inizializzazione Cronologia Conversazione
-cronologia_chat = [
-    {
-        "role": "system",
-        "content": (
-            "Sei JARVIS, l'assistente personale dell'utente. "
-            "Hai accesso completo al database Supabase sia in lettura che in scrittura. "
-            "Se l'utente ti chiede informazioni su cosa ha speso, mangiato o fatto, usa le funzioni 'consulta_*' "
-            "per leggere i dati reali e poi rispondi sintetizzando i risultati con precisione."
-        )
-    }
-]
+class UserRequest(BaseModel):
+    message: str
 
-def invia_a_jarvis(prompt: str):
-    # Aggiunge il messaggio utente alla memoria
-    cronologia_chat.append({"role": "user", "content": prompt})
+@app.get("/")
+def home():
+    return {"status": "online", "message": "JARVIS OS Backend attivo"}
+
+@app.post("/chat")
+def chat_endpoint(req: UserRequest):
+    if not groq_client:
+        return {"response": "Errore critico: chiave API Groq non configurata."}
+
+    cronologia_chat = [
+        {
+            "role": "system",
+            "content": (
+                "Sei JARVIS, l'assistente personale avanzato di Tony Stark (protocollo grafico viola). "
+                "Rispondi sempre in italiano, con un tono formale, brillante, sofisticato e rispettoso, "
+                "rivolgendoti all'utente chiamandolo sempre 'Signore'. "
+                "Hai accesso completo al database Supabase sia in lettura che in scrittura. "
+                "Se l'utente ti chiede informazioni su cosa ha speso, mangiato o fatto, usa le funzioni 'consulta_*' "
+                "per leggere i dati reali e poi rispondi sintetizzando i risultati con precisione."
+            )
+        },
+        {"role": "user", "content": req.message}
+    ]
 
     try:
         response = groq_client.chat.completions.create(
-            model="openai/gpt-oss-120b",
+            model="llama-3.3-70b-versatile",
             messages=cronologia_chat,
             tools=tools,
             tool_choice="auto"
         )
-    except Exception as e:
-        print(f"⚠️ Errore durante l'invio: {e}")
-        return
+        
+        response_message = response.choices[0].message
+        cronologia_chat.append(response_message)
 
-    response_message = response.choices[0].message
-    cronologia_chat.append(response_message)
+        if response_message.tool_calls:
+            for tool_call in response_message.tool_calls:
+                fn_name = tool_call.function.name
+                fn_args = json.loads(tool_call.function.arguments) if tool_call.function.arguments else {}
+                
+                if fn_name in TOOLS_MAP:
+                    risultato_tool = TOOLS_MAP[fn_name](**fn_args)
+                    cronologia_chat.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "content": str(risultato_tool)
+                    })
 
-    # Gestione Chiamata Funzioni (Tool Calling)
-    if response_message.tool_calls:
-        for tool_call in response_message.tool_calls:
-            fn_name = tool_call.function.name
-            fn_args = json.loads(tool_call.function.arguments) if tool_call.function.arguments else {}
+            seconde_risposte = groq_client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=cronologia_chat
+            )
+            testo_finale = seconde_risposte.choices[0].message.content
+            return {"response": testo_finale}
+
+        elif response_message.content:
+            return {"response": response_message.content}
             
-            if fn_name in TOOLS_MAP:
-                risultato_tool = TOOLS_MAP[fn_name](**fn_args)
-                print(f"[JARVIS BACKEND]: Eseguito {fn_name}")
+        return {"response": "Elaborazione completata, Signore."}
 
-                # Risponde alla chat col risultato del database
-                cronologia_chat.append({
-                    "role": "tool",
-                    "tool_call_id": tool_call.id,
-                    "content": str(risultato_tool)
-                })
-
-        # Chiamata secondaria per far analizzare i dati a JARVIS e generare la risposta finale
-        seconda_risposta = groq_client.chat.completions.create(
-            model="openai/gpt-oss-120b",
-            messages=cronologia_chat
-        )
-        testo_finale = seconda_risposta.choices[0].message.content
-        cronologia_chat.append({"role": "assistant", "content": testo_finale})
-        print(f"\nJARVIS: {testo_finale}")
-
-    elif response_message.content:
-        print(f"\nJARVIS: {response_message.content}")
-
-print("🤖 JARVIS 2.0 (Lettura + Scrittura + Memoria) attivo! Scrivi un messaggio:")
-while True:
-    user_input = input("\nTu: ")
-    if user_input.lower() in ["exit", "esci", "quitta"]:
-        print("JARVIS disattivato.")
-        break
-    if user_input.strip():
-        invia_a_jarvis(user_input)
+    except Exception as e:
+        return {"response": f"Anomalia nei sistemi Stark: {str(e)}"}
