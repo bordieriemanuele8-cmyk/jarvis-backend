@@ -16,9 +16,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-SUPABASE_URL = os.getenv("SUPABASE_URL", "https://gyynkdzsxlwfqtdnitno.supabase.co")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY", "sb_publishable_pdgK3lE8T7LKrPufXZf79A_6BlxqnYL")
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+# Usiamo "or" per garantire che se la variabile d'ambiente è vuota, usiamo l'URL di backup
+SUPABASE_URL = os.getenv("SUPABASE_URL") or "https://gyynkdzsxlwfqtdnitno.supabase.co"
+SUPABASE_KEY = os.getenv("SUPABASE_KEY") or "sb_publishable_pdgK3lE8T7LKrPufXZf79A_6BlxqnYL"
+GROQ_API_KEY = os.getenv("GROQ_API_KEY") or ""
+
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 groq_client = Groq(api_key=GROQ_API_KEY)
 
