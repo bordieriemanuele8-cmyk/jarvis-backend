@@ -15,26 +15,32 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Connessioni
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# Connessioni sicure per evitare crash di avvio
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
+supabase = None
+if SUPABASE_URL and SUPABASE_KEY and SUPABASE_URL.startswith("http"):
+    try:
+        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+    except Exception as e:
+        print("Avviso Supabase:", e)
 
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
-client = Groq(api_key=GROQ_API_KEY)
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
 class ChatRequest(BaseModel):
     message: str
 
 @app.post("/chat")
 def chat_with_jarvis(req: ChatRequest):
-    user_msg = req.message
+    if not client:
+        raise HTTPException(status_code=500, detail="Groq API Key non configurata.")
     
+    user_msg = req.message
     system_prompt = (
-        "Sei JARVIS, l'intelligenza artificiale avanzata in stile Marvel (con protocollo viola). "
+        "Sei JARVIS, l'intelligenza artificiale avanzata in stile Marvel con protocollo viola. "
         "Rispondi sempre in italiano, con un tono formale, efficiente e da maggiordomo digitale di Tony Stark. "
-        "Gestisci finanze (spese_e_finanze), nutrizione (dieta_e_nutrizione), impegni (impegni_e_task), "
-        "allenamenti (allenamenti) e la nuova sezione lezioni ed esami (lezioni_esami). "
+        "Gestisci finanze, nutrizione, impegni, allenamenti e la sezione lezioni ed esami. "
         "Se l'utente chiede ricerche online, rispondi integrando informazioni aggiornate."
     )
 
