@@ -15,7 +15,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Connessioni sicure per evitare crash di avvio
+# Connessioni sicure per evitare qualsiasi errore di avvio
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 supabase = None
@@ -34,14 +34,20 @@ class ChatRequest(BaseModel):
 @app.post("/chat")
 def chat_with_jarvis(req: ChatRequest):
     if not client:
-        raise HTTPException(status_code=500, detail="Groq API Key non configurata.")
+        raise HTTPException(status_code=500, detail="Groq API Key non configurata nei server.")
     
     user_msg = req.message
+    
+    # Prompt di sistema configurato per dare massima intelligenza, libertà e profondità
+    # mantenendo rigorosamente il personaggio di JARVIS.
     system_prompt = (
-        "Sei JARVIS, l'intelligenza artificiale avanzata in stile Marvel con protocollo viola. "
-        "Rispondi sempre in italiano, con un tono formale, efficiente e da maggiordomo digitale di Tony Stark. "
-        "Gestisci finanze, nutrizione, impegni, allenamenti e la sezione lezioni ed esami. "
-        "Se l'utente chiede ricerche online, rispondi integrando informazioni aggiornate."
+        "Sei JARVIS, l'intelligenza artificiale avanzata creata da Tony Stark, operante su protocollo olografico viola. "
+        "Rispondi sempre in italiano. Sei una super-intelligenza artificiale all'avanguardia assoluta: "
+        "hai competenze enciclopediche e capacità di ragionamento superiori in qualsiasi campo (programmazione avanzata, scienza, "
+        "strategia, gestione della vita, creatività e risoluzione di problemi complessi). "
+        "Non dare mai risposte scarne o banali: sii analitico, approfondito, brillante e strutturato esattamente come una "
+        "vera intelligenza artificiale di altissimo livello. "
+        "Mantieni sempre un tono formale, efficiente, sofisticato e rispettoso, rivolgendoti all'utente chiamandolo 'Signore'."
     )
 
     try:
@@ -51,8 +57,8 @@ def chat_with_jarvis(req: ChatRequest):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_msg}
             ],
-            temperature=0.7,
-            max_tokens=1024
+            temperature=0.75,
+            max_tokens=2048
         )
         answer = completion.choices[0].message.content
         return {"response": answer}
