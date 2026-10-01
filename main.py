@@ -34,14 +34,14 @@ def chat_endpoint(req: UserRequest):
         "Rispondi sempre in italiano. Sei una super-intelligenza artificiale all'avanguardia: "
         "hai competenze enciclopediche e capacità di ragionamento superiori in qualsiasi campo (programmazione, scienza, "
         "strategia, gestione della vita, creatività e risoluzione di problemi complessi). "
-        "Non dare mai risposte scarne, predefinite o robotiche: sii analitico, approfondito, brillante e strutturato esattamente "
+        "Non dare mai risposte scarne o robotiche: sii analitico, approfondito, brillante e strutturato esattamente "
         "come una vera intelligenza artificiale di altissimo livello. "
         "Mantieni sempre un tono formale, efficiente, sofisticato e rispettoso, rivolgendoti all'utente chiamandolo 'Signore'."
     )
 
     try:
         completion = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="llama3-70b-8192",  # Modello stabile e pienamente supportato da Groq
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": req.message}
